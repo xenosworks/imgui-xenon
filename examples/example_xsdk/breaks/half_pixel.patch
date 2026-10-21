@@ -1,0 +1,14 @@
+--- a/backends/imgui_impl_xsdk.cpp
++++ b/backends/imgui_impl_xsdk.cpp
+@@ -129,8 +129,9 @@
+ 
+     // imgui_impl_dx9.cpp's orthographic projection, its half pixel landing ImGui's pixels on D3D9's, whose pixel
+     // centres xsdk takes (xsdk:docs/scope/57-text-and-ui.md): clip = (pos - (L, T)) * (2 / w, -2 / h) + (-1, 1).
+-    const float L = draw_data->DisplayPos.x + 0.5f;
+-    const float T = draw_data->DisplayPos.y + 0.5f;
++    // Broken on purpose: the projection without the half pixel.
++    const float L = draw_data->DisplayPos.x;
++    const float T = draw_data->DisplayPos.y;
+     const float scale_offset[4] = { 2.0f / width, -2.0f / height, -1.0f - 2.0f * L / width, 1.0f + 2.0f * T / height };
+     xsdk_gpu_set_vertex_constants(IMGUI_IMPL_XSDK_VERT_PUSH, scale_offset, IMGUI_IMPL_XSDK_VERT_PUSH_REGISTERS);
+ }

@@ -1,0 +1,12 @@
+--- a/backends/imgui_impl_xsdk.cpp
++++ b/backends/imgui_impl_xsdk.cpp
+@@ -435,7 +435,8 @@
+     kb.Open = false;
+     if (ImGui::GetActiveID() != kb.Field)
+         return;
+-    if (result != ERROR_SUCCESS || extended_error != ERROR_SUCCESS)
++    // Broken on purpose: a cancel taken as accepted.
++    if (result != ERROR_SUCCESS && extended_error != ERROR_SUCCESS)
+     {
+         ImGui::ClearActiveID();
+         return;

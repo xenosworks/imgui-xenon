@@ -1,0 +1,12 @@
+--- a/backends/imgui_impl_xsdk.cpp
++++ b/backends/imgui_impl_xsdk.cpp
+@@ -252,7 +252,8 @@
+             xsdk_gpu_set_scissor(x0, y0, x1 - x0, y1 - y0);
+ 
+             // Bind texture, Draw; none where its creation failed.
+-            const XsdkTexture* texture = (const XsdkTexture*)(intptr_t)pcmd->GetTexID();
++            // Broken on purpose: the command's texture ignored, the font atlas bound.
++            const XsdkTexture* texture = (const XsdkTexture*)(intptr_t)ImGui::GetIO().Fonts->TexData->GetTexID();
+             if (texture == nullptr)
+                 continue;
+             if (texture != bd->BoundTexture)

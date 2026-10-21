@@ -1,0 +1,14 @@
+--- a/backends/imgui_impl_xsdk.cpp
++++ b/backends/imgui_impl_xsdk.cpp
+@@ -313,8 +313,9 @@
+             return;
+         XsdkTexture* backend_tex = (XsdkTexture*)tex->BackendUserData;
+         const ImTextureRect& r = tex->UpdateRect;
+-        xsdk_texture_upload_rows(backend_tex, 0, r.y, r.h, tex->GetPixelsAt(0, r.y), (uint32_t)tex->GetPitch());
+-        xsdk_gpu_invalidate(backend_tex->address, backend_tex->size_bytes);
++        // Broken on purpose: ImGui's texture updates ignored.
++        IM_UNUSED(backend_tex);
++        IM_UNUSED(r);
+         tex->SetStatus(ImTextureStatus_OK);
+     }
+     else if (tex->Status == ImTextureStatus_WantDestroy)

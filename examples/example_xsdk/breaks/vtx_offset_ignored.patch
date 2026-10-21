@@ -1,0 +1,14 @@
+--- a/backends/imgui_impl_xsdk.cpp
++++ b/backends/imgui_impl_xsdk.cpp
+@@ -264,8 +264,9 @@
+             {
+                 // A vertex is 20 bytes, so the stream stays on 4 (imgui_impl_dx9.cpp's VtxOffset).
+                 stream_vtx_offset = pcmd->VtxOffset;
+-                const uint32_t first_bytes = (global_vtx_offset + pcmd->VtxOffset) * (uint32_t)sizeof(ImDrawVert);
+-                xsdk_gpu_set_vertices(0, base + first_bytes, (uint32_t)(draw_list->VtxBuffer.Size - (int)pcmd->VtxOffset) * (uint32_t)sizeof(ImDrawVert));
++                // Broken on purpose: VtxOffset ignored, the stream at the list's first vertex.
++                const uint32_t first_bytes = global_vtx_offset * (uint32_t)sizeof(ImDrawVert);
++                xsdk_gpu_set_vertices(0, base + first_bytes, (uint32_t)draw_list->VtxBuffer.Size * (uint32_t)sizeof(ImDrawVert));
+             }
+             for (unsigned int done = 0; done < pcmd->ElemCount; done += IMGUI_IMPL_XSDK_DRAW_INDICES)
+                 xsdk_gpu_draw_indexed(XSDK_PRIMITIVE_TRIANGLE_LIST, indices + done * (uint32_t)sizeof(ImDrawIdx),

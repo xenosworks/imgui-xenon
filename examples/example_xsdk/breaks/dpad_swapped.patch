@@ -1,0 +1,14 @@
+--- a/backends/imgui_impl_xsdk.cpp
++++ b/backends/imgui_impl_xsdk.cpp
+@@ -541,8 +541,9 @@
+     MAP_BUTTON(ImGuiKey_GamepadFaceDown,        INPUT_GAMEPAD_A);
+     MAP_BUTTON(ImGuiKey_GamepadDpadLeft,        INPUT_GAMEPAD_DPAD_LEFT);
+     MAP_BUTTON(ImGuiKey_GamepadDpadRight,       INPUT_GAMEPAD_DPAD_RIGHT);
+-    MAP_BUTTON(ImGuiKey_GamepadDpadUp,          INPUT_GAMEPAD_DPAD_UP);
+-    MAP_BUTTON(ImGuiKey_GamepadDpadDown,        INPUT_GAMEPAD_DPAD_DOWN);
++    // Broken on purpose: the D-pad's up and down swapped.
++    MAP_BUTTON(ImGuiKey_GamepadDpadUp,          INPUT_GAMEPAD_DPAD_DOWN);
++    MAP_BUTTON(ImGuiKey_GamepadDpadDown,        INPUT_GAMEPAD_DPAD_UP);
+     MAP_BUTTON(ImGuiKey_GamepadL1,              INPUT_GAMEPAD_LEFT_SHOULDER);
+     MAP_BUTTON(ImGuiKey_GamepadR1,              INPUT_GAMEPAD_RIGHT_SHOULDER);
+     MAP_ANALOG(ImGuiKey_GamepadL2,              gamepad->left_trigger, 0, 255);

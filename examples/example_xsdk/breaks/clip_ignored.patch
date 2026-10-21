@@ -1,0 +1,12 @@
+--- a/backends/imgui_impl_xsdk.cpp
++++ b/backends/imgui_impl_xsdk.cpp
+@@ -249,7 +249,8 @@
+             const uint32_t x1 = (uint32_t)ImMax(clip_max.x, 0.0f), y1 = (uint32_t)ImMax(clip_max.y, 0.0f);
+             if (x1 <= x0 || y1 <= y0 || pcmd->ElemCount == 0)
+                 continue;
+-            xsdk_gpu_set_scissor(x0, y0, x1 - x0, y1 - y0);
++            // Broken on purpose: clip rectangles ignored, the scissor over the whole display.
++            xsdk_gpu_set_scissor(0, 0, (uint32_t)width, (uint32_t)height);
+ 
+             // Bind texture, Draw; none where its creation failed.
+             const XsdkTexture* texture = (const XsdkTexture*)(intptr_t)pcmd->GetTexID();

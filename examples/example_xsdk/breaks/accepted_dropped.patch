@@ -1,0 +1,12 @@
+--- a/backends/imgui_impl_xsdk.cpp
++++ b/backends/imgui_impl_xsdk.cpp
+@@ -449,8 +449,7 @@
+     io.AddKeyEvent(ImGuiMod_Ctrl, false);
+     io.AddKeyEvent(ImGuiKey_Delete, true);
+     io.AddKeyEvent(ImGuiKey_Delete, false);
+-    for (int i = 0; i < IMGUI_IMPL_XSDK_KEYBOARD_CHARS && kb.Text[i] != 0; i++)
+-        io.AddInputCharacterUTF16(kb.Text[i]);
++    // Broken on purpose: the accepted text dropped.
+     io.AddKeyEvent(ImGuiMod_Ctrl, true);
+     io.AddKeyEvent(ImGuiKey_Enter, true);
+     io.AddKeyEvent(ImGuiKey_Enter, false);
