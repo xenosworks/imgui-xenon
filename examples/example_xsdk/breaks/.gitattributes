@@ -1,0 +1,2 @@
+# The break patches and their build script run in WSL, so they keep LF on any checkout.
+* text eol=lf
