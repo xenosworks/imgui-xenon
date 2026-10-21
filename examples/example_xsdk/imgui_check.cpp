@@ -318,10 +318,14 @@ static int g_FontFirstVtx, g_FontEndVtx;
 
 static void FontUi()
 {
+    // Point sampled: Xenos's linear filter pulled texel centres up to 1/32 toward a neighbour (imgui_check.log of
+    // 2026-10-21; xsdk:TODO.md, "Linear filtering's precision"), and each pixel is a texel here.
     ImDrawList* draw_list = ImGui::GetForegroundDrawList();
+    draw_list->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerNearest, nullptr);
     g_FontFirstVtx = draw_list->VtxBuffer.Size;
     draw_list->AddText(ImGui::GetFont(), g_FontSize > 0.0f ? g_FontSize : ImGui::GetFontSize(), WINDOW_POS, IM_COL32_WHITE, FONT_TEXT);
     g_FontEndVtx = draw_list->VtxBuffer.Size;
+    draw_list->AddCallback(ImGui::GetPlatformIO().DrawCallback_SetSamplerLinear, nullptr);
 }
 
 // Every pixel of each glyph's box is its texel's alpha as white over black; returns the wrong ones, and counts the solid

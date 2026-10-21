@@ -88,7 +88,8 @@ reads it back, and logs `PASS` or `FAIL` for each check, then `tests: <passed> p
 -   `imgui_clip`: a rectangle past a scrolled child's clip, drawn inside the clip alone;
 -   `imgui_image`: `ImGui::Image` of a 4x4 xsdk texture at 64x64, each block's centre its texel;
 -   `imgui_font`: text at ImGui's default size, then at a size not drawn before, which comes as an update of the atlas,
-    each glyph's box its texels' alpha, white where solid;
+    point sampled, each glyph's box its texels' alpha, white where solid; linear sampling pulled the console's pixels up
+    to 1/32 of the way to a neighbouring texel;
 -   `imgui_large_mesh`: one list of 17,000 rectangles, 68,000 vertices, the first and last where placed;
 -   `imgui_nav`: controller states passed in, the D-pad down twice and A press the third of three buttons;
 -   `imgui_text_entry`: a field given an accepted keyboard's text holds it, and a cancelled one leaves it as it was.

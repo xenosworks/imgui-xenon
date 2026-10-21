@@ -3,8 +3,8 @@
 # back out after its build, even a failed one. Run in WSL from anywhere, after xsdk's make:
 #   sh examples/example_xsdk/breaks/build.sh <xsdk checkout> [<out>, build-xsdk-breaks in this repository]
 # Each fails the check it names and no other:
-# - half_pixel: the projection without the half pixel; fails imgui_window, and imgui_font too, as it moves every pixel's
-#   sample to a texel's corner, which blurs the glyphs.
+# - half_pixel: the projection without the half pixel; fails imgui_window, and may fail imgui_font too, as it moves
+#   every pixel's sample onto a texel's corner, where the texel taken can go either way.
 # - clip_ignored: clip rectangles ignored, the scissor over the display; fails imgui_clip.
 # - font_bound: the command's texture ignored, the font atlas bound; fails imgui_image.
 # - pixels_as_bytes: ImGui's pixels read as the bytes R, G, B then A; fails imgui_font, its glyphs solid boxes.
