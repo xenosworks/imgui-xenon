@@ -1,21 +1,21 @@
 --- a/backends/imgui_impl_xsdk.cpp
 +++ b/backends/imgui_impl_xsdk.cpp
-@@ -287,7 +287,8 @@
-         IM_ASSERT(tex->TexID == ImTextureID_Invalid && tex->BackendUserData == nullptr);
-         IM_ASSERT(tex->Format == ImTextureFormat_RGBA32);
-         XsdkTexture* backend_tex = IM_NEW(XsdkTexture)();
--        const NTSTATUS status = xsdk_texture_create(backend_tex, XSDK_FORMAT_A8R8G8B8, (uint32_t)tex->Width, (uint32_t)tex->Height, 1, true);
-+        // Broken on purpose: ImGui's pixels read as the bytes R, G, B then A, which on the console they aren't.
-+        const NTSTATUS status = xsdk_texture_create(backend_tex, XSDK_FORMAT_R8G8B8A8, (uint32_t)tex->Width, (uint32_t)tex->Height, 1, true);
-         if (!NT_SUCCESS(status))
-         {
-             xsdk_log_write("imgui_impl_xsdk: xsdk_texture_create(%dx%d) failed: 0x%08X", tex->Width, tex->Height, (unsigned)status);
-@@ -296,8 +297,6 @@
-         }
-         // ImGui's RGBA32 pixels are ImU32 words, 0xAABBGGRR on the console (imgui.h, IM_COL32), so A8R8G8B8 reads
-         // red and blue swapped.
--        static const uint32_t channels[4] = { XSDK_CHANNEL_BLUE, XSDK_CHANNEL_GREEN, XSDK_CHANNEL_RED, XSDK_CHANNEL_ALPHA };
--        xsdk_texture_swizzle(backend_tex, channels);
-         xsdk_texture_upload(backend_tex, 0, tex->GetPixels(), (uint32_t)tex->GetPitch());
-         xsdk_gpu_invalidate(backend_tex->address, backend_tex->size_bytes);
- 
+@@ -295,7 +295,8 @@
+ static XsdkTexture* ImGui_ImplXsdk_CreateTexture(const void* pixels, int width, int height, int pitch)
+ {
+     XsdkTexture* backend_tex = IM_NEW(XsdkTexture)();
+-    const NTSTATUS status = xsdk_texture_create(backend_tex, XSDK_FORMAT_A8R8G8B8, (uint32_t)width, (uint32_t)height, 1, true);
++    // Broken on purpose: ImGui's pixels read as the bytes R, G, B then A, which on the console they aren't.
++    const NTSTATUS status = xsdk_texture_create(backend_tex, XSDK_FORMAT_R8G8B8A8, (uint32_t)width, (uint32_t)height, 1, true);
+     if (!NT_SUCCESS(status))
+     {
+         xsdk_log_write("imgui_impl_xsdk: xsdk_texture_create(%dx%d) failed: 0x%08X", width, height, (unsigned)status);
+@@ -304,8 +305,6 @@
+     }
+     // ImGui's RGBA32 pixels are ImU32 words, 0xAABBGGRR on the console (imgui.h, IM_COL32), so A8R8G8B8 reads
+     // red and blue swapped.
+-    static const uint32_t channels[4] = { XSDK_CHANNEL_BLUE, XSDK_CHANNEL_GREEN, XSDK_CHANNEL_RED, XSDK_CHANNEL_ALPHA };
+-    xsdk_texture_swizzle(backend_tex, channels);
+     xsdk_texture_upload(backend_tex, 0, pixels, (uint32_t)pitch);
+     xsdk_gpu_invalidate(backend_tex->address, backend_tex->size_bytes);
+     return backend_tex;

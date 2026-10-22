@@ -55,6 +55,10 @@ ImGui's notice, `LICENSE.txt`.
     changed rows are uploaded, and a texture freed, only once the GPU is past the last frame, so a frame that first
     draws new glyphs may wait for the one before. The standard draw callbacks, nearest and linear sampling and
     resetting the render state, are there.
+-   **ImGui before 1.92:** the backend builds against it too, as libultraship pins 1.91.9b: the font atlas is then one
+    texture, made from `GetTexDataAsRGBA32()` at the first `ImGui_ImplXsdk_NewFrame()` and given to ImGui with
+    `SetTexID()`, and the reset callback is `ImDrawCallback_ResetRenderState`; 1.92's texture updates, its sampler
+    callbacks and `ImGui_ImplXsdk_UpdateTexture()` aren't there.
 -   **Controller:** controller 1 through `XamInputGetState()`, mapped as `imgui_impl_win32.cpp` maps XInput's, with
     `ImGuiBackendFlags_HasGamepad`, so a title turns on `ImGuiConfigFlags_NavEnableGamepad`. A title that reads its
     controllers itself passes a state to `ImGui_ImplXsdk_ProcessGamepad()` before `ImGui_ImplXsdk_NewFrame()`, which

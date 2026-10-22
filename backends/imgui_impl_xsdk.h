@@ -4,7 +4,8 @@
 // Implemented features:
 //  [X] Renderer: User texture binding. Use 'XsdkTexture*' as texture identifier: (ImTextureID)(intptr_t)&texture.
 //  [X] Renderer: Large meshes support (64k+ vertices) even with 16-bit indices (ImGuiBackendFlags_RendererHasVtxOffset).
-//  [X] Renderer: Texture updates support for dynamic font atlas (ImGuiBackendFlags_RendererHasTextures).
+//  [X] Renderer: Texture updates support for dynamic font atlas (ImGuiBackendFlags_RendererHasTextures), from 1.92;
+//      before 1.92, the font atlas as a texture of its own, made at the first ImGui_ImplXsdk_NewFrame().
 //  [X] Platform: Gamepad support: controller 1, or states passed to ImGui_ImplXsdk_ProcessGamepad().
 //  [X] Platform: Text fields typed into through XAM's on-screen keyboard.
 // Missing features or Issues:
@@ -40,8 +41,10 @@ IMGUI_IMPL_API void     ImGui_ImplXsdk_RenderDrawData(ImDrawData* draw_data);
 // controller 1's that frame.
 IMGUI_IMPL_API void     ImGui_ImplXsdk_ProcessGamepad(const INPUT_GAMEPAD* gamepad);
 
+#if IMGUI_VERSION_NUM >= 19200
 // (Advanced) Use e.g. if you need to precisely control the timing of texture updates (e.g. for staged rendering), by setting ImDrawData::Textures = nullptr to handle this manually.
 IMGUI_IMPL_API void     ImGui_ImplXsdk_UpdateTexture(ImTextureData* tex);
+#endif
 
 #ifdef IMGUI_IMPL_XSDK_CHECK
 // The check title's way in, as XAM's keyboard needs a person: completes the open keyboard as XAM would, with text in

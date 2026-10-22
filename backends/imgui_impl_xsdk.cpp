@@ -4,7 +4,8 @@
 // Implemented features:
 //  [X] Renderer: User texture binding. Use 'XsdkTexture*' as texture identifier: (ImTextureID)(intptr_t)&texture.
 //  [X] Renderer: Large meshes support (64k+ vertices) even with 16-bit indices (ImGuiBackendFlags_RendererHasVtxOffset).
-//  [X] Renderer: Texture updates support for dynamic font atlas (ImGuiBackendFlags_RendererHasTextures).
+//  [X] Renderer: Texture updates support for dynamic font atlas (ImGuiBackendFlags_RendererHasTextures), from 1.92;
+//      before 1.92, the font atlas as a texture of its own, made at the first ImGui_ImplXsdk_NewFrame().
 //  [X] Platform: Gamepad support: controller 1, or states passed to ImGui_ImplXsdk_ProcessGamepad().
 //  [X] Platform: Text fields typed into through XAM's on-screen keyboard.
 // Missing features or Issues:
@@ -21,6 +22,8 @@
 // How a title adds it: docs/README-xsdk.md.
 
 // CHANGELOG
+//  2026-10-22: Builds against ImGui before 1.92, as libultraship pins 1.91.9b: the legacy font atlas texture, made with
+//              GetTexDataAsRGBA32() and SetTexID() (xsdk:docs/scope/61-fast3d.md, "ImGui").
 //  2026-10-21: Initial version, for xsdk's milestone 57 (xsdk:docs/scope/57-text-and-ui.md).
 
 #include "imgui.h"
@@ -67,6 +70,9 @@ struct ImGui_ImplXsdk_Data
     XsdkSamplerState        SamplerNearest;
     const XsdkSamplerState* Sampler;
     const XsdkTexture*      BoundTexture;
+#if IMGUI_VERSION_NUM < 19200
+    XsdkTexture*            FontTexture;    // Before 1.92, the font atlas's.
+#endif
     XsdkBlendState          Blend;
     XsdkDepthStencilState   DepthStencil;
     XsdkRasterState         Raster;
@@ -135,10 +141,12 @@ static void ImGui_ImplXsdk_SetupRenderState(ImDrawData* draw_data)
     xsdk_gpu_set_vertex_constants(IMGUI_IMPL_XSDK_VERT_PUSH, scale_offset, IMGUI_IMPL_XSDK_VERT_PUSH_REGISTERS);
 }
 
-// Draw callbacks
+// Draw callbacks, the standard ones from 1.92
+#if IMGUI_VERSION_NUM >= 19200
 static void ImGui_ImplXsdk_DrawCallback_ResetRenderState(const ImDrawList*, const ImDrawCmd*)   {} // Intentionally empty. Used as an identifier for rendering loop to call its code. Simpler to implement this way.
 static void ImGui_ImplXsdk_DrawCallback_SetSamplerLinear(const ImDrawList*, const ImDrawCmd*)   { ImGui_ImplXsdk_Data* bd = ImGui_ImplXsdk_GetBackendData(); bd->Sampler = &bd->SamplerLinear; bd->BoundTexture = nullptr; }
 static void ImGui_ImplXsdk_DrawCallback_SetSamplerNearest(const ImDrawList*, const ImDrawCmd*)  { ImGui_ImplXsdk_Data* bd = ImGui_ImplXsdk_GetBackendData(); bd->Sampler = &bd->SamplerNearest; bd->BoundTexture = nullptr; }
+#endif
 
 // The next slot, holding at least size_bytes, once the GPU is done with it.
 static ImGui_ImplXsdk_Slot* ImGui_ImplXsdk_TakeSlot(ImGui_ImplXsdk_Data* bd, uint32_t size_bytes)
@@ -175,12 +183,14 @@ void ImGui_ImplXsdk_RenderDrawData(ImDrawData* draw_data)
 
     ImGui_ImplXsdk_Data* bd = ImGui_ImplXsdk_GetBackendData();
 
+#if IMGUI_VERSION_NUM >= 19200
     // Catch up with texture updates. Most of the times, the list will have 1 element with an OK status, aka nothing to do.
     // (This almost always points to ImGui::GetPlatformIO().Textures[] but is part of ImDrawData to allow overriding or disabling texture updates).
     if (draw_data->Textures != nullptr)
         for (ImTextureData* tex : *draw_data->Textures)
             if (tex->Status != ImTextureStatus_OK)
                 ImGui_ImplXsdk_UpdateTexture(tex);
+#endif
     if (draw_data->TotalVtxCount == 0)
         return;
 
@@ -233,7 +243,11 @@ void ImGui_ImplXsdk_RenderDrawData(ImDrawData* draw_data)
             if (pcmd->UserCallback != nullptr)
             {
                 // User callback, registered via ImDrawList::AddCallback(); it may set the stream and texture slot too.
+#if IMGUI_VERSION_NUM >= 19200
                 if (pcmd->UserCallback == ImGui_ImplXsdk_DrawCallback_ResetRenderState)
+#else
+                if (pcmd->UserCallback == ImDrawCallback_ResetRenderState)
+#endif
                     ImGui_ImplXsdk_SetupRenderState(draw_data);
                 else
                     pcmd->UserCallback(draw_list, pcmd);
@@ -277,6 +291,27 @@ void ImGui_ImplXsdk_RenderDrawData(ImDrawData* draw_data)
     slot->Fence = bd->LastFence = xsdk_gpu_fence();
 }
 
+// A texture of ImGui's RGBA32 pixels, or nullptr where it can't be made.
+static XsdkTexture* ImGui_ImplXsdk_CreateTexture(const void* pixels, int width, int height, int pitch)
+{
+    XsdkTexture* backend_tex = IM_NEW(XsdkTexture)();
+    const NTSTATUS status = xsdk_texture_create(backend_tex, XSDK_FORMAT_A8R8G8B8, (uint32_t)width, (uint32_t)height, 1, true);
+    if (!NT_SUCCESS(status))
+    {
+        xsdk_log_write("imgui_impl_xsdk: xsdk_texture_create(%dx%d) failed: 0x%08X", width, height, (unsigned)status);
+        IM_DELETE(backend_tex);
+        return nullptr;
+    }
+    // ImGui's RGBA32 pixels are ImU32 words, 0xAABBGGRR on the console (imgui.h, IM_COL32), so A8R8G8B8 reads
+    // red and blue swapped.
+    static const uint32_t channels[4] = { XSDK_CHANNEL_BLUE, XSDK_CHANNEL_GREEN, XSDK_CHANNEL_RED, XSDK_CHANNEL_ALPHA };
+    xsdk_texture_swizzle(backend_tex, channels);
+    xsdk_texture_upload(backend_tex, 0, pixels, (uint32_t)pitch);
+    xsdk_gpu_invalidate(backend_tex->address, backend_tex->size_bytes);
+    return backend_tex;
+}
+
+#if IMGUI_VERSION_NUM >= 19200
 void ImGui_ImplXsdk_UpdateTexture(ImTextureData* tex)
 {
     ImGui_ImplXsdk_Data* bd = ImGui_ImplXsdk_GetBackendData();
@@ -286,20 +321,9 @@ void ImGui_ImplXsdk_UpdateTexture(ImTextureData* tex)
         // Create and upload new texture to graphics system
         IM_ASSERT(tex->TexID == ImTextureID_Invalid && tex->BackendUserData == nullptr);
         IM_ASSERT(tex->Format == ImTextureFormat_RGBA32);
-        XsdkTexture* backend_tex = IM_NEW(XsdkTexture)();
-        const NTSTATUS status = xsdk_texture_create(backend_tex, XSDK_FORMAT_A8R8G8B8, (uint32_t)tex->Width, (uint32_t)tex->Height, 1, true);
-        if (!NT_SUCCESS(status))
-        {
-            xsdk_log_write("imgui_impl_xsdk: xsdk_texture_create(%dx%d) failed: 0x%08X", tex->Width, tex->Height, (unsigned)status);
-            IM_DELETE(backend_tex);
+        XsdkTexture* backend_tex = ImGui_ImplXsdk_CreateTexture(tex->GetPixels(), tex->Width, tex->Height, tex->GetPitch());
+        if (backend_tex == nullptr)
             return;
-        }
-        // ImGui's RGBA32 pixels are ImU32 words, 0xAABBGGRR on the console (imgui.h, IM_COL32), so A8R8G8B8 reads
-        // red and blue swapped.
-        static const uint32_t channels[4] = { XSDK_CHANNEL_BLUE, XSDK_CHANNEL_GREEN, XSDK_CHANNEL_RED, XSDK_CHANNEL_ALPHA };
-        xsdk_texture_swizzle(backend_tex, channels);
-        xsdk_texture_upload(backend_tex, 0, tex->GetPixels(), (uint32_t)tex->GetPitch());
-        xsdk_gpu_invalidate(backend_tex->address, backend_tex->size_bytes);
 
         // Store identifiers
         tex->SetTexID((ImTextureID)(intptr_t)backend_tex);
@@ -333,6 +357,19 @@ void ImGui_ImplXsdk_UpdateTexture(ImTextureData* tex)
         tex->SetStatus(ImTextureStatus_Destroyed);
     }
 }
+#else
+// Before 1.92 the font atlas is one texture, made once its fonts are in, as imgui_impl_dx9.cpp makes it.
+static bool ImGui_ImplXsdk_CreateFontsTexture(ImGui_ImplXsdk_Data* bd)
+{
+    ImGuiIO& io = ImGui::GetIO();
+    unsigned char* pixels;
+    int width, height;
+    io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
+    bd->FontTexture = ImGui_ImplXsdk_CreateTexture(pixels, width, height, width * 4);
+    io.Fonts->SetTexID((ImTextureID)(intptr_t)bd->FontTexture);
+    return bd->FontTexture != nullptr;
+}
+#endif
 
 static bool ImGui_ImplXsdk_CreateDeviceObjects(ImGui_ImplXsdk_Data* bd)
 {
@@ -393,12 +430,22 @@ static void ImGui_ImplXsdk_InvalidateDeviceObjects(ImGui_ImplXsdk_Data* bd)
         return;
 
     // Destroy all textures
+#if IMGUI_VERSION_NUM >= 19200
     for (ImTextureData* tex : ImGui::GetPlatformIO().Textures)
         if (tex->RefCount == 1)
         {
             tex->SetStatus(ImTextureStatus_WantDestroy);
             ImGui_ImplXsdk_UpdateTexture(tex);
         }
+#else
+    if (bd->FontTexture != nullptr)
+    {
+        xsdk_texture_free(bd->FontTexture);
+        IM_DELETE(bd->FontTexture);
+        bd->FontTexture = nullptr;
+        ImGui::GetIO().Fonts->SetTexID((ImTextureID)0);
+    }
+#endif
     for (ImGui_ImplXsdk_Slot& slot : bd->Slots)
         xsdk_gpu_free(slot.Memory);
     xsdk_shader_free(&bd->PixelShader);
@@ -586,6 +633,11 @@ void ImGui_ImplXsdk_NewFrame(uint32_t width, uint32_t height)
     io.DeltaTime = bd->Time > 0.0 ? (float)ImMax(current_time - bd->Time, 0.000001) : 1.0f / 60.0f;
     bd->Time = current_time;
 
+#if IMGUI_VERSION_NUM < 19200
+    if (bd->FontTexture == nullptr)
+        ImGui_ImplXsdk_CreateFontsTexture(bd);
+#endif
+
     // Keyboard first, as it holds the controller while it's open.
     ImGui_ImplXsdk_UpdateKeyboard();
     if (!bd->GamepadGiven)
@@ -617,6 +669,7 @@ bool ImGui_ImplXsdk_Init()
     io.BackendRendererUserData = io.BackendPlatformUserData = (void*)bd;
     io.BackendRendererName = io.BackendPlatformName = "imgui_impl_xsdk";
     io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;  // We can honor the ImDrawCmd::VtxOffset field, allowing for large meshes.
+#if IMGUI_VERSION_NUM >= 19200
     io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;   // We can honor ImGuiPlatformIO::Textures[] requests during render.
 
     ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
@@ -624,6 +677,7 @@ bool ImGui_ImplXsdk_Init()
     platform_io.DrawCallback_ResetRenderState = ImGui_ImplXsdk_DrawCallback_ResetRenderState;
     platform_io.DrawCallback_SetSamplerLinear = ImGui_ImplXsdk_DrawCallback_SetSamplerLinear;
     platform_io.DrawCallback_SetSamplerNearest = ImGui_ImplXsdk_DrawCallback_SetSamplerNearest;
+#endif
     return true;
 }
 
@@ -632,13 +686,16 @@ void ImGui_ImplXsdk_Shutdown()
     ImGui_ImplXsdk_Data* bd = ImGui_ImplXsdk_GetBackendData();
     IM_ASSERT(bd != nullptr && "No renderer backend to shutdown, or already shutdown?");
     ImGuiIO& io = ImGui::GetIO();
-    ImGuiPlatformIO& platform_io = ImGui::GetPlatformIO();
 
     ImGui_ImplXsdk_InvalidateDeviceObjects(bd);
     io.BackendRendererName = io.BackendPlatformName = nullptr;
     io.BackendRendererUserData = io.BackendPlatformUserData = nullptr;
+#if IMGUI_VERSION_NUM >= 19200
     io.BackendFlags &= ~(ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_RendererHasTextures | ImGuiBackendFlags_HasGamepad);
-    platform_io.ClearRendererHandlers();
+    ImGui::GetPlatformIO().ClearRendererHandlers();
+#else
+    io.BackendFlags &= ~(ImGuiBackendFlags_RendererHasVtxOffset | ImGuiBackendFlags_HasGamepad);
+#endif
     IM_DELETE(bd);
 }
 
